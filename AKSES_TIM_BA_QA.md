@@ -33,7 +33,7 @@
 ### **Super Admin (Full Access)**
 ```
 Username: simrs
-Password: SIMRS@R5d5
+Password: password_4nd@_Kuat
 Email:    simrs@sikancil.id
 Role:     Super Admin
 ```
