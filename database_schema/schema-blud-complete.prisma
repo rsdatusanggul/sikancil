@@ -1,0 +1,680 @@
+// Si-Kancil BLUD - Complete Schema with BLUD Addendum Modules
+// Version: 2.0.0 - BLUD Compliant
+// Last Updated: February 2025
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==========================================
+// ENUMS - Enhanced with BLUD Specific
+// ==========================================
+
+// ... (keep all existing enums from previous schema)
+
+enum SumberDanaBLUD {
+  APBD                // Rupiah Murni dari APBD
+  PNBP_FUNGSIONAL    // Pendapatan Fungsional/Mandiri
+  HIBAH              // Hibah dari pihak ketiga
+  PINJAMAN           // Pinjaman/Pembiayaan
+  LAIN_LAIN          // Sumber dana lainnya
+}
+
+enum JenisBelanjaBLUD {
+  PEGAWAI            // Belanja Pegawai
+  BARANG_JASA        // Belanja Barang & Jasa
+  MODAL              // Belanja Modal
+  BUNGA              // Belanja Bunga
+  TAK_TERDUGA        // Belanja Tak Terduga
+}
+
+enum StatusSPP {
+  DRAFT
+  SUBMITTED
+  VERIFIED
+  APPROVED
+  REJECTED
+  DIBAYAR
+}
+
+enum JenisSPP {
+  SPP_UP             // Uang Persediaan
+  SPP_GU             // Ganti Uang
+  SPP_TU             // Tambah Uang
+  SPP_LS_GAJI        // LS Gaji
+  SPP_LS_BARANG_JASA // LS Barang/Jasa
+  SPP_LS_MODAL       // LS Modal
+}
+
+enum JenisPengadaan {
+  BARANG
+  JASA_KONSULTANSI
+  JASA_LAINNYA
+  PEKERJAAN_KONSTRUKSI
+}
+
+enum MetodePengadaan {
+  TENDER_TERBUKA
+  TENDER_TERBATAS
+  SELEKSI
+  PENUNJUKAN_LANGSUNG
+  E_PURCHASING
+  PENGADAAN_LANGSUNG
+}
+
+// ==========================================
+// MODUL 1: PERENCANAAN BLUD (RBA)
+// ==========================================
+
+model RBA {
+  id                String   @id @default(cuid())
+  kode              String   @unique
+  tahunAnggaran     Int
+  
+  // Status
+  status            String   // DRAFT, SUBMITTED, APPROVED, REVISED
+  revisiKe          Int      @default(0)
+  
+  // Komponen RBA
+  visi              String?  @db.Text
+  misi              String?  @db.Text
+  tujuan            String?  @db.Text
+  
+  // Target Kinerja
+  targetOutput      Json?    // Target output/outcome
+  iku               Json?    // Indikator Kinerja Utama
+  
+  // Total Proyeksi
+  proyeksiPendapatan Decimal @db.Decimal(15,2)
+  proyeksiBelanja   Decimal  @db.Decimal(15,2)
+  proyeksiPembiayaan Decimal @db.Decimal(15,2) @default(0)
+  
+  // Approval
+  tanggalPenyusunan DateTime
+  tanggalApproval   DateTime?
+  approvedBy        String?
+  
+  createdBy         String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  // Relations
+  pendapatan        RBAPendapatan[]
+  belanja           RBABelanja[]
+  pembiayaan        RBAPembiayaan[]
+  anggaranKas       AnggaranKas[]
+  revisi            RevisiRBA[]
+  
+  @@index([tahunAnggaran])
+  @@index([status])
+  @@map("rba")
+}
+
+model RBAPendapatan {
+  id              String   @id @default(cuid())
+  rbaId           String
+  rba             RBA      @relation(fields: [rbaId], references: [id], onDelete: Cascade)
+  
+  kodeRekening    String
+  uraian          String
+  sumberDana      SumberDanaBLUD
+  
+  // Proyeksi per triwulan
+  tw1             Decimal  @db.Decimal(15,2) @default(0)
+  tw2             Decimal  @db.Decimal(15,2) @default(0)
+  tw3             Decimal  @db.Decimal(15,2) @default(0)
+  tw4             Decimal  @db.Decimal(15,2) @default(0)
+  totalProyeksi   Decimal  @db.Decimal(15,2)
+  
+  // Catatan
+  keterangan      String?  @db.Text
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@index([rbaId])
+  @@index([kodeRekening])
+  @@map("rba_pendapatan")
+}
+
+model RBABelanja {
+  id              String   @id @default(cuid())
+  rbaId           String
+  rba             RBA      @relation(fields: [rbaId], references: [id], onDelete: Cascade)
+  
+  kodeRekening    String
+  uraian          String
+  jenisBelanja    JenisBelanjaBLUD
+  
+  // Proyeksi per triwulan
+  tw1             Decimal  @db.Decimal(15,2) @default(0)
+  tw2             Decimal  @db.Decimal(15,2) @default(0)
+  tw3             Decimal  @db.Decimal(15,2) @default(0)
+  tw4             Decimal  @db.Decimal(15,2) @default(0)
+  totalProyeksi   Decimal  @db.Decimal(15,2)
+  
+  // Catatan
+  keterangan      String?  @db.Text
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@index([rbaId])
+  @@index([kodeRekening])
+  @@map("rba_belanja")
+}
+
+model RBAPembiayaan {
+  id              String   @id @default(cuid())
+  rbaId           String
+  rba             RBA      @relation(fields: [rbaId], references: [id], onDelete: Cascade)
+  
+  jenis           String   // PENERIMAAN, PENGELUARAN
+  kodeRekening    String
+  uraian          String
+  nilai           Decimal  @db.Decimal(15,2)
+  
+  keterangan      String?  @db.Text
+  
+  createdAt       DateTime @default(now())
+  
+  @@index([rbaId])
+  @@map("rba_pembiayaan")
+}
+
+model AnggaranKas {
+  id              String   @id @default(cuid())
+  rbaId           String
+  rba             RBA      @relation(fields: [rbaId], references: [id], onDelete: Cascade)
+  
+  bulan           Int      // 1-12
+  tahun           Int
+  
+  // Saldo Awal
+  saldoAwal       Decimal  @db.Decimal(15,2)
+  
+  // Penerimaan
+  penerimaanAPBD  Decimal  @db.Decimal(15,2) @default(0)
+  penerimaanFungsional Decimal @db.Decimal(15,2) @default(0)
+  penerimaanHibah Decimal  @db.Decimal(15,2) @default(0)
+  penerimaanLain  Decimal  @db.Decimal(15,2) @default(0)
+  totalPenerimaan Decimal  @db.Decimal(15,2)
+  
+  // Pengeluaran
+  belanjaPegawai  Decimal  @db.Decimal(15,2) @default(0)
+  belanjaBarangJasa Decimal @db.Decimal(15,2) @default(0)
+  belanjaModal    Decimal  @db.Decimal(15,2) @default(0)
+  belanjaLain     Decimal  @db.Decimal(15,2) @default(0)
+  totalPengeluaran Decimal @db.Decimal(15,2)
+  
+  // Saldo Akhir
+  saldoAkhir      Decimal  @db.Decimal(15,2)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@unique([rbaId, tahun, bulan])
+  @@index([tahun, bulan])
+  @@map("anggaran_kas")
+}
+
+model RevisiRBA {
+  id              String   @id @default(cuid())
+  rbaId           String
+  rba             RBA      @relation(fields: [rbaId], references: [id])
+  
+  revisiKe        Int
+  tanggalRevisi   DateTime
+  alasanRevisi    String   @db.Text
+  
+  // Perubahan
+  perubahanData   Json     // Detail perubahan
+  
+  // Approval
+  approvedBy      String?
+  approvedAt      DateTime?
+  
+  createdBy       String
+  createdAt       DateTime @default(now())
+  
+  @@index([rbaId])
+  @@map("revisi_rba")
+}
+
+// ==========================================
+// MODUL 2: PENDAPATAN BLUD (Enhanced)
+// ==========================================
+
+model PendapatanBLUD {
+  id              String   @id @default(cuid())
+  nomorBukti      String   @unique
+  tanggal         DateTime
+  
+  // Klasifikasi BLUD Specific
+  sumberDana      SumberDanaBLUD
+  kategoriPendapatan String // OPERASIONAL, NON_OPERASIONAL, HIBAH
+  
+  // Detail
+  uraian          String
+  jumlah          Decimal  @db.Decimal(15,2)
+  
+  // Jika dari SIMRS
+  simrsReferenceId String?
+  simrsData       Json?
+  
+  // Jika APBD
+  nomorSP2D       String?
+  tanggalSP2D     DateTime?
+  
+  // Jika Hibah
+  pemberiHibah    String?
+  nomorSKHibah    String?
+  tanggalSKHibah  DateTime?
+  
+  // Penyetoran
+  disetor         Boolean  @default(false)
+  tanggalSetor    DateTime?
+  nomorSTS        String?  // Surat Tanda Setoran
+  
+  // BKU Reference
+  nomorBKU        String?
+  
+  // Journal
+  journalId       String?  @unique
+  isPosted        Boolean  @default(false)
+  
+  // Unit Kerja
+  unitKerjaId     String?
+  
+  status          TransactionStatus @default(DRAFT)
+  
+  createdBy       String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@index([tanggal])
+  @@index([sumberDana])
+  @@index([nomorBKU])
+  @@map("pendapatan_blud")
+}
+
+// ==========================================
+// MODUL 3: BELANJA BLUD (SPP-SPM-SP2D)
+// ==========================================
+
+model SPP {
+  id              String   @id @default(cuid())
+  nomorSPP        String   @unique
+  tanggalSPP      DateTime
+  
+  jenisSPP        JenisSPP
+  tahunAnggaran   Int
+  
+  // Pengaju
+  unitKerjaId     String
+  pengajuId       String
+  
+  // Nilai
+  nilaiSPP        Decimal  @db.Decimal(15,2)
+  
+  // Rincian
+  uraian          String   @db.Text
+  rincian         SPPRincian[]
+  
+  // Pajak
+  pph21           Decimal  @db.Decimal(15,2) @default(0)
+  pph22           Decimal  @db.Decimal(15,2) @default(0)
+  pph23           Decimal  @db.Decimal(15,2) @default(0)
+  ppn             Decimal  @db.Decimal(15,2) @default(0)
+  totalPajak      Decimal  @db.Decimal(15,2) @default(0)
+  
+  // Nilai Bersih
+  nilaiBersih     Decimal  @db.Decimal(15,2)
+  
+  // Penerima
+  namaPenerima    String
+  npwpPenerima    String?
+  bankPenerima    String
+  rekeningPenerima String
+  
+  // Dokumen Pendukung
+  dokumen         DokumenSPP[]
+  
+  // Referensi
+  kontrakId       String?
+  
+  // Status & Approval
+  status          StatusSPP @default(DRAFT)
+  
+  submittedBy     String?
+  submittedAt     DateTime?
+  
+  verifiedBy      String?
+  verifiedAt      DateTime?
+  
+  approvedBy      String?
+  approvedAt      DateTime?
+  
+  rejectedBy      String?
+  rejectedAt      DateTime?
+  alasanReject    String?  @db.Text
+  
+  // SPM Reference
+  spmId           String?
+  spm             SPM?     @relation(fields: [spmId], references: [id])
+  
+  createdBy       String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@index([nomorSPP])
+  @@index([tanggalSPP])
+  @@index([status])
+  @@index([unitKerjaId])
+  @@map("spp")
+}
+
+model SPPRincian {
+  id              String   @id @default(cuid())
+  sppId           String
+  spp             SPP      @relation(fields: [sppId], references: [id], onDelete: Cascade)
+  
+  kodeRekening    String
+  uraian          String
+  volume          Decimal? @db.Decimal(10,2)
+  satuan          String?
+  hargaSatuan     Decimal? @db.Decimal(15,2)
+  jumlah          Decimal  @db.Decimal(15,2)
+  
+  createdAt       DateTime @default(now())
+  
+  @@index([sppId])
+  @@map("spp_rincian")
+}
+
+model DokumenSPP {
+  id              String   @id @default(cuid())
+  sppId           String
+  spp             SPP      @relation(fields: [sppId], references: [id], onDelete: Cascade)
+  
+  namaDokumen     String
+  jenisDokumen    String   // INVOICE, KUITANSI, BA_SERAH_TERIMA, KONTRAK, dll
+  filePath        String
+  fileSize        Int
+  
+  uploadedBy      String
+  uploadedAt      DateTime @default(now())
+  
+  @@index([sppId])
+  @@map("dokumen_spp")
+}
+
+model SPM {
+  id              String   @id @default(cuid())
+  nomorSPM        String   @unique
+  tanggalSPM      DateTime
+  
+  // SPP yang diproses
+  spp             SPP[]
+  
+  // Nilai
+  nilaiSPM        Decimal  @db.Decimal(15,2)
+  
+  // Penerima
+  namaPenerima    String
+  nomorRekening   String
+  namaBank        String
+  
+  // Status
+  status          String   // DRAFT, APPROVED, REJECTED, DIBAYAR
+  
+  // Approval
+  approvedBy      String?
+  approvedAt      DateTime?
+  ttdDigital      String?
+  
+  // SP2D Reference
+  sp2dId          String?
+  sp2d            SP2D?    @relation(fields: [sp2dId], references: [id])
+  
+  createdBy       String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@index([nomorSPM])
+  @@index([tanggalSPM])
+  @@map("spm")
+}
+
+model SP2D {
+  id              String   @id @default(cuid())
+  nomorSP2D       String   @unique
+  tanggalSP2D     DateTime
+  
+  // SPM yang dicairkan
+  spm             SPM[]
+  
+  // Nilai
+  nilaiSP2D       Decimal  @db.Decimal(15,2)
+  
+  // Pencairan
+  tanggalCair     DateTime?
+  statusCair      String   // PENDING, CAIR, GAGAL
+  
+  // Bank
+  bankPencairan   String
+  nomorReferensi  String?  // No. transaksi bank
+  
+  // Approval Final
+  approvedBy      String   // Pemimpin BLUD
+  approvedAt      DateTime
+  ttdDigital      String?
+  
+  // BKU & Jurnal
+  nomorBKU        String?
+  isPosted        Boolean  @default(false)
+  journalId       String?  @unique
+  
+  createdBy       String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@index([nomorSP2D])
+  @@index([tanggalSP2D])
+  @@index([nomorBKU])
+  @@map("sp2d")
+}
+
+// ==========================================
+// MODUL 4: PENATAUSAHAAN KAS BLUD
+// ==========================================
+
+model BKU {
+  id              String   @id @default(cuid())
+  nomorUrut       Int
+  tanggal         DateTime
+  
+  // Klasifikasi
+  jenis           String   // PENERIMAAN, PENGELUARAN
+  
+  // Uraian
+  uraian          String   @db.Text
+  kodeRekening    String
+  
+  // Nilai
+  penerimaan      Decimal  @db.Decimal(15,2) @default(0)
+  pengeluaran     Decimal  @db.Decimal(15,2) @default(0)
+  saldo           Decimal  @db.Decimal(15,2)
+  
+  // Referensi
+  referenceType   String?  // SP2D, STS, TUNAI, BANK
+  referenceId     String?
+  referenceNo     String?
+  
+  // Journal
+  journalId       String?
+  
+  createdBy       String
+  createdAt       DateTime @default(now())
+  
+  @@unique([nomorUrut])
+  @@index([tanggal])
+  @@index([jenis])
+  @@map("buku_kas_umum")
+}
+
+model STS {
+  id              String   @id @default(cuid())
+  nomorSTS        String   @unique
+  tanggalSTS      DateTime
+  
+  // Penyetor
+  namaPenyetor    String
+  alamatPenyetor  String?
+  
+  // Detail Setoran
+  uraian          String   @db.Text
+  jumlah          Decimal  @db.Decimal(15,2)
+  
+  // Klasifikasi
+  kodeRekening    String
+  jenisPendapatan String
+  
+  // Penyetoran ke Bank
+  bankTujuan      String?
+  rekeningTujuan  String?
+  tanggalSetor    DateTime?
+  buktiSetorPath  String?
+  
+  // BKU & Journal
+  nomorBKU        String?
+  journalId       String?  @unique
+  isPosted        Boolean  @default(false)
+  
+  createdBy       String
+  createdAt       DateTime @default(now())
+  
+  @@index([nomorSTS])
+  @@index([tanggalSTS])
+  @@map("surat_tanda_setoran")
+}
+
+// ==========================================
+// MODUL 6: PENGADAAN & KONTRAK
+// ==========================================
+
+model KontrakPengadaan {
+  id              String   @id @default(cuid())
+  nomorKontrak    String   @unique
+  tanggalKontrak  DateTime
+  
+  // Vendor
+  vendorId        String?
+  namaVendor      String
+  npwpVendor      String?
+  
+  // Jenis
+  jenisPengadaan  JenisPengadaan
+  metodePengadaan MetodePengadaan
+  
+  // Nilai
+  nilaiKontrak    Decimal  @db.Decimal(15,2)
+  
+  // Anggaran
+  tahunAnggaran   Int
+  kodeRekening    String
+  
+  // Periode
+  tanggalMulai    DateTime
+  tanggalSelesai  DateTime
+  
+  // Progress
+  progresRealisasi Decimal @db.Decimal(5,2) @default(0)
+  
+  // Pembayaran
+  termPembayaran  TermPembayaran[]
+  totalDibayar    Decimal  @db.Decimal(15,2) @default(0)
+  sisaKontrak     Decimal  @db.Decimal(15,2)
+  
+  // Addendum
+  addendum        Addendum[]
+  
+  // Status
+  status          String   // AKTIF, SELESAI, TERMINATE
+  
+  // Dokumen
+  filePath        String?
+  
+  createdBy       String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@index([nomorKontrak])
+  @@index([tahunAnggaran])
+  @@index([status])
+  @@map("kontrak_pengadaan")
+}
+
+model TermPembayaran {
+  id              String   @id @default(cuid())
+  kontrakId       String
+  kontrak         KontrakPengadaan @relation(fields: [kontrakId], references: [id], onDelete: Cascade)
+  
+  termKe          Int
+  persentase      Decimal  @db.Decimal(5,2)
+  nilai           Decimal  @db.Decimal(15,2)
+  
+  syaratPembayaran String  @db.Text
+  
+  // Status
+  statusPembayaran String  // BELUM, DIPROSES, DIBAYAR
+  sppId           String?
+  tanggalBayar    DateTime?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@index([kontrakId])
+  @@map("term_pembayaran")
+}
+
+model Addendum {
+  id              String   @id @default(cuid())
+  kontrakId       String
+  kontrak         KontrakPengadaan @relation(fields: [kontrakId], references: [id])
+  
+  nomorAddendum   String
+  tanggalAddendum DateTime
+  
+  jenisPerubahan  String   // NILAI, WAKTU, LINGKUP
+  
+  // Perubahan Nilai
+  nilaiSebelum    Decimal? @db.Decimal(15,2)
+  nilaiSesudah    Decimal? @db.Decimal(15,2)
+  
+  // Perubahan Waktu
+  waktuSebelum    DateTime?
+  waktuSesudah    DateTime?
+  
+  alasanPerubahan String   @db.Text
+  filePath        String?
+  
+  createdBy       String
+  createdAt       DateTime @default(now())
+  
+  @@index([kontrakId])
+  @@map("addendum")
+}
+
+// ==========================================
+// KEEP ALL EXISTING TABLES from schema.prisma
+// (User, UnitKerja, ChartOfAccount, Journal, etc.)
+// ==========================================
+
+// NOTE: Merge this with the complete schema.prisma from before
+// This file shows ONLY the BLUD-specific additions

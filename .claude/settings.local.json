@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep:*)",
+      "Bash(PGPASSWORD=sikancil_dev_password psql:*)",
+      "Bash(pm2 status:*)",
+      "Bash(curl:*)",
+      "Bash(pm2 restart:*)",
+      "Bash(pm2 flush:*)",
+      "Bash(npm run test:e2e:*)",
+      "Bash(find:*)",
+      "Bash(ls:*)",
+      "Bash(npx shadcn@latest add dialog:*)",
+      "Bash(cd:*)",
+      "Bash(npx shadcn@latest add checkbox:*)",
+      "Bash(npm run)",
+      "Bash(npx tsc:*)",
+      "Bash(npx shadcn@latest add separator:*)",
+      "Bash(timeout 60 tail:*)",
+      "Bash(lsof:*)",
+      "Bash(kill:*)",
+      "Bash(pm2 list:*)",
+      "Bash(pgrep:*)",
+      "Bash(pkill:*)",
+      "Bash(npm view:*)",
+      "Bash(redis-cli ping:*)",
+      "Bash(timeout 15 npm run start:dev:*)",
+      "Bash(pm2:*)",
+      "Bash(cat:*)"
+    ]
+  }
+}
